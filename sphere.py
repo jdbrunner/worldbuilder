@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-
+import imageio
 from matplotlib import cm
 from vispy import scene
 from vispy.visuals.transforms import STTransform
@@ -30,7 +30,7 @@ colors[Elevation<=0.45] = cm.Blues_r(Elevation)[Elevation<=0.45]
 Tempcolors = np.zeros_like(colors)
 Tempcolors[np.where(Temps < 0.15)] = cm.cool(Temps, alpha = 0.8)[np.where(Temps < 0.15)]
 
-print(Tempcolors)
+# print(Tempcolors)
 
 def toCart(p,t,r):
     return r*np.cos(t)*np.sin(p),r*np.sin(t)*np.sin(p),r*np.cos(p)
@@ -47,3 +47,16 @@ view.camera.set_range(x=[-1.1, 1.1])
 
 if __name__ == '__main__' and sys.flags.interactive == 0:
     canvas.app.run()
+
+n_steps = 36
+step_angle = 10.
+axis = [0, 0, 1]
+writer = imageio.get_writer('animation.gif')
+for i in range(n_steps):
+    im = canvas.render()
+    writer.append_data(im)
+    if i >= n_steps:
+        view.camera.transform.rotate(step_angle, axis)
+    else:
+        view.camera.transform.rotate(-step_angle, axis)
+writer.close()

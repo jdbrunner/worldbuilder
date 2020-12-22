@@ -6,6 +6,14 @@ from race import *
 
 import numpy as np
 
+def GetNeighbors(l,size):
+    if np.array(np.unravel_index(l,size))[1] == 0:
+        return [np.ravel_multi_index((j,1),size) for j in range(size[1])]
+    elif np.array(np.unravel_index(l,size))[1] == size[1]-1:
+        return [np.ravel_multi_index((j,size[1]-1),size) for j in range(size[1])]
+    else:
+        return [np.ravel_multi_index(np.remainder(np.array(np.unravel_index(l,(100,100))) + [i,j],[size[0],size[1]+10]),size) for i in [-1,0,1] for j in [-1,0,1]]
+
 
 class FantasyWorld:
     '''
@@ -18,6 +26,7 @@ class FantasyWorld:
         theta = np.linspace(-np.pi,np.pi,GridSize)
         self.Radius = radius
         self.GlobeGrid = np.meshgrid(phi,theta)
+        self.GridSize = (GridSize,GridSize)
 
         self.gridindices =  [(i,j) for i in range(self.GlobeGrid[0].shape[0]) for j in range(self.GlobeGrid[0].shape[1])]
 
@@ -53,6 +62,8 @@ class FantasyWorld:
         self.renewrate = Rrrate*np.ones(len(self.InitialRenew.flatten()))
         self.renewrate[self.OceanIndicator]  = 0
         self.renewrate = self.renewrate.reshape(GridSize,GridSize)
+
+        self.neighborkey = [np.array(GetNeighbors(l,self.GridSize)) for l in range(self.GlobeGrid[0].size)]
 
     def AddMountains(self,NumMts = 50,mtHeight = 0.5,dx = 0.01,minlen=0.5,maxlen=2,wigglyness = 1):
         self.Elevation, self.LandIndicator = AddMts(self,NumMts = NumMts,mtHeight = mtHeight,dx = dx,minlen=minlen,maxlen=maxlen,wigglyness = wigglyness)
