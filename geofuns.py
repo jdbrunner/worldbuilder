@@ -4,6 +4,31 @@ import numpy as np
 def toCart(p,t,r):
     return r*np.cos(t)*np.sin(p),r*np.sin(t)*np.sin(p),r*np.cos(p)
 
+def toSphere(x,y,z):
+    xpy = x**2 + y**2
+    if xpy == 0:
+        if z>0:
+            r = z
+            phi = 0
+            theta = 0
+        else:
+            r = - z
+            phi = np.pi
+            theta = 0
+    elif y == 0:
+        r = np.sqrt(xpy + z**2)
+        phi = np.arctan(z/np.sqrt(xpy))
+        if x > 0:
+            theta = 0
+        else:
+            theta = np.pi
+    else:
+        r = np.sqrt(xpy + z**2)
+        phi = np.arctan(z/np.sqrt(xpy))
+        theta = np.arctan(y/x)
+    return r, phi,theta
+
+
 def GCdist(pt1,pt2):
     '''Compute the great circle GCdistance between two points, returns as fraction of the planet radius'''
     x1,y1,z1 = toCart(pt1[0],pt1[1],1)
