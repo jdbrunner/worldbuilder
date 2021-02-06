@@ -147,7 +147,7 @@ for ii,jj in demos.ExistingCountries.items():
     ExistingColors[loc] = jj
 
 im = ax.scatter(MapTheta.flatten()[ExistingColors.flatten()>0],World1.GlobeGrid[0].flatten()[ExistingColors.flatten()>0],s=20,c  = ExistingColors.flatten()[ExistingColors.flatten()>0],cmap = "gist_ncar")
-plt.savefig("PoliticalMap.png")
+plt.savefig(NameOfFolder+"/PoliticalMap.png")
 
-pickle.dump(World1, open( "world.p", "wb" ) )
-pickle.dump(demos, open( "demographics.p", "wb" ) )
+pickle.dump(World1, open( NameOfFolder+"/world.p", "wb" ) )
+pickle.dump(demos, open(NameOfFolder+ "/demographics.p", "wb" ) )
