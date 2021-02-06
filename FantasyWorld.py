@@ -21,7 +21,7 @@ class FantasyWorld:
 
     '''
 
-    def __init__(self,GridSize = 100,radius = 3963, oLevel = 0.5,NumPlates = 50,dx = 0.01,minlen=0.5,maxlen=2,wigglyness = 1,smth = 0.2,jagged = 0.1,NumMts = 50,mtHeight = 0.5,mtdx = 0.01,mtminlen=0.1,mtmaxlen=2,mtwigglyness = 3,elevTemp = 0.3,winterVar = 3, summerVar = 2, extremes = 0.05, coastdecay = 8,coasteffect = 1, elevRain = 0.2, raincoastDecay = 4,raincoast = 0.4,riverProb = 0.1,R0scale = 10,N0scale = 10,Rrrate = 1):
+    def __init__(self,GridSize = 100,radius = 3963, oLevel = 0.5,NumPlates = 50,dx = 0.01,minlen=0.5,maxlen=2,wigglyness = 1,smth = 0.2,jagged = 0.1,NumMts = 50,mtHeight = 0.5,mtdx = 0.01,mtminlen=0.1,mtmaxlen=2,mtwigglyness = 3,elevTemp = 0.3,winterVar = 3, summerVar = 2, extremes = 0.05, coastdecay = 8,coasteffect = 1, elevRain = 0.2, raincoastDecay = 4,raincoast = 0.4,riverProb = 0.1,R0scale = 20,N0scale = 20,Rrrate = 1):
         phi = np.linspace(0,np.pi,GridSize)
         theta = np.linspace(-np.pi,np.pi,GridSize)
         self.Radius = radius

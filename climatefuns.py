@@ -156,15 +156,19 @@ def makeRivers(world,riverProb = 0.1):
 
 
 def renew0(i,j,world,max_river_bonus = 0.4):
+    gpsizes = dotArea(world.GlobeGrid[0],world.Radius,world.GridSize[1])
+    gsize = gpsizes[i,j]/np.max(gpsizes)
     rain = world.RainFall[i,j]
     temp = np.arctan((world.Temps[0][i,j] + world.Temps[1][i,j])-1)/np.pi + 1
     if (i,j) in world.RiverIndices:
-        return rain*temp + (0.1+max_river_bonus)*np.random.rand()
+        return (rain*temp + (0.1+max_river_bonus)*np.random.rand())*gsize
     else:
-        return rain*temp + 0.1*np.random.rand()
+        return (rain*temp + 0.1*np.random.rand())*gsize
 
 
 def initNonR(i,j,world):
+    gpsizes = dotArea(world.GlobeGrid[0],world.Radius,world.GridSize[1])
+    gsize = gpsizes[i,j]/np.max(gpsizes)
     base = 2*(np.arctan(2*(world.Elevation[i,j] - 0.5))/np.pi + np.arctan(1)/np.pi)#(0.6*np.arctan(2*(world.Elevation[i,j] - 0.5))/np.pi)
     latscl = 0.4*np.sin(world.GlobeGrid[0][i,j]) + 0.6
-    return base*np.random.rand()*latscl
+    return (base*np.random.rand()*latscl)*gsize

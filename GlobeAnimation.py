@@ -45,13 +45,13 @@ scene.visuals.GridMesh(*BumpySphereCart2,parent=view.scene, colors = Tempcolors,
 
 view.camera.set_range(x=[-1.1, 1.1])
 
-if __name__ == '__main__' and sys.flags.interactive == 0:
-    canvas.app.run()
+# if __name__ == '__main__' and sys.flags.interactive == 0:
+#     canvas.app.run()
 
 n_steps = 36
 step_angle = 10.
 axis = [0, 0, 1]
-writer = imageio.get_writer('animation.gif')
+writer = imageio.get_writer('GlobeAnimation.gif')
 for i in range(n_steps):
     im = canvas.render()
     writer.append_data(im)
