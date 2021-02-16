@@ -30,6 +30,8 @@ from demographics import *
 
 import pickle
 
+from GlobeAnimation import *
+
 NameOfFolder = sys.argv[1]
 
 try:
@@ -40,6 +42,7 @@ except:
 
 
 GS =100
+print("Letting there be light")
 World1 = FantasyWorld(GridSize = GS,oLevel = 0.4)
 
 MapTheta = mapThetas(World1.GlobeGrid)
@@ -54,25 +57,30 @@ ax.scatter(MapTheta[np.invert(World1.LandIndicator)],World1.GlobeGrid[0][np.inve
 ax.scatter(MapTheta[RiverMsk],World1.GlobeGrid[0][RiverMsk],s=5,color = 'b')
 plt.savefig(NameOfFolder+"/WorldMap.png")
 
-np.save(NameOfFolder+"/Elevation",World1.Elevation)
-np.save(NameOfFolder+"/GlobeMesh",World1.GlobeGrid)
-np.save(NameOfFolder+"/Temps",World1.Temps[1])
+# np.save(NameOfFolder+"/Elevation",World1.Elevation)
+# np.save(NameOfFolder+"/GlobeMesh",World1.GlobeGrid)
+# np.save(NameOfFolder+"/Temps",World1.Temps[1])
+#
+#
+# sub.run("python GlobeAnimation.py "+ NameOfFolder+"/GlobeMesh.npy " + NameOfFolder+"/Elevation.npy "+ NameOfFolder+ "/Temps.npy")
+MakeGif(World1,NameOfFolder,num_frames = 100)
 
-sub.run("python GlobeAnimation.py "+ NameOfFolder+"/GlobeMesh.npy " + NameOfFolder+"/Elevation.npy "+ NameOfFolder+ "/Temps.npy")
+print("And there's light")
 
 #Should probably have these load from file or something.
-Kappas = 0.1*np.array([1.1,0.9,0.7,0.8,1.1]) #np.random.rand(numPops)
-Gammas = 0.1*np.array([1,0.9,0.7,0.8,1.1]) #11*np.random.rand(numPops)
-beta1s = 0.1*np.array([1,0.8,1,0.9,0.8]) #0.5*np.random.rand(numPops)
-beta2s = 0.01*np.array([1,0.8,0.9,1,0.8]) #0.01*np.random.rand(numPops)
-speeds = [2,1,0.9,0.8,0.9]
-ThePops = ['humans','halfling','elves','dwarves','gnomes']
+Kappas = 0.1*np.array([1,0.9,0.8,0.9,0.9,1.1]) #np.random.rand(numPops)
+Gammas = 0.1*np.array([1,0.9,0.8,0.9,0.9,1.1]) #11*np.random.rand(numPops)
+beta1s = 0.1*np.array([1,1,0.9,1,1,1.1]) #0.5*np.random.rand(numPops)
+beta2s = 0.01*np.array([1.1,1,1,1,1,1]) #0.01*np.random.rand(numPops)
+speeds = [1.1,1,1,0.8,0.9,0.7]
+ThePops = ['humans','halfling','elves','dwarves','gnomes','orcs']
 numPops = len(ThePops)
 Starters = [World1.RiverIndices[np.random.choice(len(World1.RiverIndices))] for r in range(numPops)]
 IntialPops = np.zeros((numPops,*World1.GridSize))
 for st in range(len(Starters)):
     IntialPops[st,Starters[st][0],Starters[st][1]] = 0.1
 
+print("Creating the races")
 demos = Demographics(ThePops,IntialPops,Kappas,Gammas,beta1s,beta2s,speeds)
 
 #call it units of decades?
@@ -80,11 +88,8 @@ tstp = 1 #decade time-steps until we get farther on then switch to year. Any lar
 ExpectedDisastersPerDecade = 1 #maximum of 1/dt
 ExpectedMigrationsPerDecade = 0.5 #maximum of 1/dt
 
+print("Spreading Civilization")
 while demos.History["time"][-1] < 500:
-    if demos.History["time"][-1] > 300:
-        tstp = 0.5
-    if demos.History["time"][-1] > 400:
-        tstp = 0.2
     if any([np.sum(demos.History[pop][-1]).round(5) == 0 for pop in demos.Races]):
         print("Extinction:", pop)
     World1.Renewables,World1.NonRenewables = demos.ChangePop(World1,dt = tstp)
@@ -96,6 +101,10 @@ while demos.History["time"][-1] < 500:
         demos.Migration(World1)
     ExpectedMigrationsPerDecade = min(0.1 + 0.1*demos.History["time"][-1],1) #maximum of 1/dt
 
+print("And look how that turned out...")
+
+pickle.dump(World1, open( NameOfFolder+"/world.p", "wb" ) )
+pickle.dump(demos, open(NameOfFolder+ "/demographics.p", "wb" ) )
 
 fig = plt.figure(figsize = (10,5))
 ax = plt.axes()
@@ -105,7 +114,7 @@ ax.legend()
 plt.savefig(NameOfFolder+"/TotalPopulations.png")
 
 
-fig,ax = plt.subplots(5,1,figsize = (10,25))
+fig,ax = plt.subplots(numPops,1,figsize = (10,5*numPops))
 
 for axs in ax:
     axs.set_ylim(np.pi,0)
@@ -148,6 +157,3 @@ for ii,jj in demos.ExistingCountries.items():
 
 im = ax.scatter(MapTheta.flatten()[ExistingColors.flatten()>0],World1.GlobeGrid[0].flatten()[ExistingColors.flatten()>0],s=20,c  = ExistingColors.flatten()[ExistingColors.flatten()>0],cmap = "gist_ncar")
 plt.savefig(NameOfFolder+"/PoliticalMap.png")
-
-pickle.dump(World1, open( NameOfFolder+"/world.p", "wb" ) )
-pickle.dump(demos, open(NameOfFolder+ "/demographics.p", "wb" ) )

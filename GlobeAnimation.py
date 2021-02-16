@@ -1,62 +1,89 @@
-import sys
+import PIL
+import matplotlib.pyplot as plt
 import numpy as np
-import imageio
+from mpl_toolkits.mplot3d import Axes3D
+from FantasyWorld import *
 from matplotlib import cm
-from vispy import scene
-from vispy.visuals.transforms import STTransform
-from vispy import geometry
+from matplotlib import colors as cmod
+from scipy.interpolate import interp2d
+from matplotlib.animation import FuncAnimation, PillowWriter
+from plotting import *
+import PIL
+import io
 
-canvas = scene.SceneCanvas(keys='interactive', bgcolor='black',
-                           size=(800, 600), show=True)
+def MakeColArr(Elv,LI,newL):
+    colorArr = np.zeros((newL[1],newL[0],4))
+    colorArr[LI.T] = cm.YlGn_r(Elv.T)[LI]
+    colorArr[np.invert(LI.T)] = cm.Blues_r(Elv.T)[np.invert(LI.T)]
+    return colorArr
 
-view = canvas.central_widget.add_view()
-view.camera = 'arcball'
-# view.camera = 'fly'
-#
+def fig2img(fig):
+    """Convert a Matplotlib figure to a PIL Image and return it"""
+    buf = io.BytesIO()
+    fig.savefig(buf)
+    buf.seek(0)
+    img = PIL.Image.open(buf)
+    return img
 
-Globe = np.load(sys.argv[1])
-Elevation = np.load(sys.argv[2])
-Temps = np.load(sys.argv[3])
+def turnImg(fig,ax,angle):
 
-if len(sys.argv) > 4:
-    Rads =np.ones(Globe[0].shape)+0.01*Elevation
-else:
-    Rads = np.ones(Globe[0].shape)
+    ax.view_init(elev = 0, azim = angle)
+    img = fig2img(fig)
 
-colors = np.empty((*Elevation.shape,4))
-colors[Elevation>0.45] = cm.YlGn_r(Elevation)[Elevation>0.45]
-colors[Elevation<=0.45] = cm.Blues_r(Elevation)[Elevation<=0.45]
-
-Tempcolors = np.zeros_like(colors)
-Tempcolors[np.where(Temps < 0.15)] = cm.cool(Temps, alpha = 0.8)[np.where(Temps < 0.15)]
-
-# print(Tempcolors)
-
-def toCart(p,t,r):
-    return r*np.cos(t)*np.sin(p),r*np.sin(t)*np.sin(p),r*np.cos(p)
-
-BumpySphereCart = toCart(*Globe,Rads)
-BumpySphereCart2 = toCart(*Globe,Rads+0.001)
-
-# bumpy = geometry.MeshData(vertices = BumpySphereCart)
-scene.visuals.GridMesh(*BumpySphereCart,parent=view.scene, colors = colors,shading = None)
-scene.visuals.GridMesh(*BumpySphereCart2,parent=view.scene, colors = Tempcolors,shading = None)
+    return  img
 
 
-view.camera.set_range(x=[-1.1, 1.1])
+def MakeGif(world,SaveDir,num_frames = 10, spinTime = 5):#
+    #need to increase the resolution of the elevation array so it doesn't look like potato
+    n = 10
+    Phi = world.GlobeGrid[0][0]
+    Theta = world.GlobeGrid[1].T[0]
+    ElevationInterp = interp2d(Phi,Theta,world.Elevation)
 
-# if __name__ == '__main__' and sys.flags.interactive == 0:
-#     canvas.app.run()
+    newLen = (n*len(Phi),n*len(Theta))
 
-n_steps = 36
-step_angle = 10.
-axis = [0, 0, 1]
-writer = imageio.get_writer('GlobeAnimation.gif')
-for i in range(n_steps):
-    im = canvas.render()
-    writer.append_data(im)
-    if i >= n_steps:
-        view.camera.transform.rotate(step_angle, axis)
-    else:
-        view.camera.transform.rotate(-step_angle, axis)
-writer.close()
+    NewPhi = np.linspace(0, np.pi, newLen[0])
+    NewTheta = np.linspace(-np.pi,np.pi,newLen[1])
+    ElvDetail = ElevationInterp(NewPhi,NewTheta)
+    DetailLI = ElvDetail > world.oLevel
+
+    colorArr = MakeColArr(ElvDetail,DetailLI,newLen)
+
+    # coordinates of the image - don't know if this is entirely accurate, but probably close
+    lons = np.linspace(-180, 180, colorArr.shape[1]) * np.pi/180
+    lats = np.linspace(-90, 90, colorArr.shape[0])[::-1] * np.pi/180
+
+    # repeat code from one of the examples linked to in the question, except for specifying facecolors:
+    fig = plt.figure(figsize = (10,10))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.view_init(elev=0, azim=0)
+    x = np.outer(np.cos(lons), np.cos(lats)).T
+    y = np.outer(np.sin(lons), np.cos(lats)).T
+    z = np.outer(np.ones(np.size(lons)), np.sin(lats)).T
+    ax.set_axis_off()
+    Grid = np.meshgrid(NewPhi,NewTheta)
+    grdSize = Grid[0].size
+    resol = 200
+    ax.plot_surface(x, y, z, facecolors = colorArr,rcount = resol,ccount = resol)
+
+    print("Making Globe Animation")
+    frms = [turnImg(fig,ax,th) for th in np.linspace(0,360,num_frames)]
+    print("Saving Animation")
+    frms[0].save(SaveDir + '/SpinningGlobe.gif',save_all=True, append_images=frms[1:], optimize=False, duration=spinTime,loop=0)
+    print("Animation Saved")
+
+    # static.save("Static.png")
+    #
+    # print("Making Globe Animation")
+    # ani = FuncAnimation(fig, updatefig,frames = np.linspace(0,360,num_frames))
+    # print("Saving Animation")
+    # writer = PillowWriter(fps=frpsec)
+    # ani.save(SaveDir + "/SpinningGlobe.gif", writer=writer)
+    #
+    # print("Animation Saved")
+
+if __name__ == "__main__":
+    GS =100
+    World1 = FantasyWorld(GridSize = GS,oLevel = 0.4)
+    print("World Made")
+    MakeGif(World1,num_frames = 100)

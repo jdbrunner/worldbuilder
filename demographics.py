@@ -263,44 +263,49 @@ class Demographics:
     def Migration(self,world):
         iii = np.random.choice(len(self.Races))
         whichRace = self.Races[iii]
-        if np.sum(self.Populations[iii]):
-            loc1 = np.random.choice(self.Populations[iii].size,p = self.Populations[iii].flatten().round(5)/np.sum(self.Populations[iii].flatten().round(5)))
-            loc1 = np.unravel_index(loc1,self.Populations[iii].shape)
-            loc1Spher = (world.GlobeGrid[0][loc1],world.GlobeGrid[1][loc1])
-            loc1cart = toCart(*loc1Spher,1)
-            time = self.History["time"][-1]
-            mean_dist = min(np.pi*time/(0.001*world.Radius),np.pi/2)
-            dist = min(np.random.exponential(mean_dist),np.pi)
-
-            #a first vector on the circle
-            if loc1Spher[0] + dist < np.pi:
-                strt = (loc1Spher[0]+dist,loc1Spher[1])
+        if np.sum(self.Populations[iii].round(5)):
+            probs = self.Populations[iii].flatten().round(5)/np.sum(self.Populations[iii].flatten().round(5))
+            if np.isnan(np.sum(probs)):
+                print(self.Races[iii])
+                print(np.sum(self.Populations[iii].round(5)))
             else:
-                if loc1Spher[1] <0:
-                    strt = (2*np.pi - loc1Spher[0]+dist,loc1Spher[1] + np.pi)
+                loc1 = np.random.choice(self.Populations[iii].size,p = probs)
+                loc1 = np.unravel_index(loc1,self.Populations[iii].shape)
+                loc1Spher = (world.GlobeGrid[0][loc1],world.GlobeGrid[1][loc1])
+                loc1cart = toCart(*loc1Spher,1)
+                time = self.History["time"][-1]
+                mean_dist = min(np.pi*time/(0.001*world.Radius),np.pi/2)
+                dist = min(np.random.exponential(mean_dist),np.pi)
+
+                #a first vector on the circle
+                if loc1Spher[0] + dist < np.pi:
+                    strt = (loc1Spher[0]+dist,loc1Spher[1])
                 else:
-                    strt = (2*np.pi - loc1Spher[0]+dist,loc1Spher[1] - np.pi)
+                    if loc1Spher[1] <0:
+                        strt = (2*np.pi - loc1Spher[0]+dist,loc1Spher[1] + np.pi)
+                    else:
+                        strt = (2*np.pi - loc1Spher[0]+dist,loc1Spher[1] - np.pi)
 
-            strtC = toCart(*strt,1)
+                strtC = toCart(*strt,1)
 
-            #where on the circle:
-            rot = 2*np.pi*np.random.rand()
+                #where on the circle:
+                rot = 2*np.pi*np.random.rand()
 
-            #rotate the start about the center of circle:
-            rotation = R.from_rotvec(rot*np.array(loc1cart))
-            finalCart = rotation.apply(strtC)
+                #rotate the start about the center of circle:
+                rotation = R.from_rotvec(rot*np.array(loc1cart))
+                finalCart = rotation.apply(strtC)
 
-            finalSphere = toSphere(*finalCart)
+                finalSphere = toSphere(*finalCart)
 
-            loc2 = (np.where(world.GlobeGrid[1][:,0] > finalSphere[2])[0][0],np.where(world.GlobeGrid[0][0] > finalSphere[1])[0][0])
-            if world.LandIndicator[loc2]:
-                prop_of_pop = 0.5*np.random.rand()
-                size = self.Populations[iii][loc1]*(prop_of_pop)
+                loc2 = (np.where(world.GlobeGrid[1][:,0] > finalSphere[2])[0][0],np.where(world.GlobeGrid[0][0] > finalSphere[1])[0][0])
+                if world.LandIndicator[loc2]:
+                    prop_of_pop = 0.5*np.random.rand()
+                    size = self.Populations[iii][loc1]*(prop_of_pop)
 
-                self.Populations[iii][loc1] = self.Populations[iii][loc1]-size
-                self.Populations[iii][loc2] = size + self.Populations[iii][loc2]
+                    self.Populations[iii][loc1] = self.Populations[iii][loc1]-size
+                    self.Populations[iii][loc2] = size + self.Populations[iii][loc2]
 
-                self.Migrations += [{"race":whichRace,"time":self.History["time"][-1],"start":loc1,"end":loc2,"size":size}]
+                    self.Migrations += [{"race":whichRace,"time":self.History["time"][-1],"start":loc1,"end":loc2,"size":size}]
 
     def GetPolitics(self,world):
         pop = np.sum(self.Populations, axis = 0)
