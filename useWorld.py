@@ -197,7 +197,7 @@ def ZoomInRegion(upperleft,lowerright,world,demographics,res = 500):
 
     cities = Cities(upperleft,lowerright,LocalLand,world,demographics,'total')
 
-    return Local,LocalLand,local_rivers,LocalCountry,cities,P,T
+    return Local,LocalLand,local_rivers,LocalCountry,cities,P,T,ElevationInterp
 
 def GetDemographics(Country,demographics, t = -1):
     pops = {}
@@ -215,10 +215,18 @@ def GetDemosRegion(CountryList,demographics, t = -1):
     return retDf
 
 
+def RoadPts(p1,p2,Region,landInd):
+    diff = np.array(p2) - np.array(p1)
+    perp = np.array([-diff[1],diff[0]])
+    freq = 10*np.random.rand()
+    road = [np.array(p1) + t*diff + 0.1*np.sin(freq*t)*perp for t in np.linspace(0,1,100)]
+    roadfinal = [pt for pt in road if landInd(*pt) > 0.2]
+    return [s[0] for s in roadfinal],[s[1] for s in roadfinal]
+
 class Region:
 
     def __init__(self,upperleft,lowerright,world,demographics,res = 500):
-        Local,LocalLand,local_rivers,LocalCountry,cities,P,T = ZoomInRegion(upperleft,lowerright,world,demographics,res=res)
+        Local,LocalLand,local_rivers,LocalCountry,cities,P,T,ElevationInterp = ZoomInRegion(upperleft,lowerright,world,demographics,res=res)
         self.Phi = P
         self.Theta = T
         self.Elevation = Local
@@ -228,25 +236,49 @@ class Region:
         self.CityMasks = cities
 
         self.PopInterp = interp2d(world.GlobeGrid[0][0],world.GlobeGrid[1].T[0],demographics.History["total"][-1], kind = 'quintic')
+        self.ElevationInterp = ElevationInterp
+
+        self.oLevel = world.oLevel
 
         self.Cities = self.ListCities()
+
+
 
         self.width = GCdist(((upperleft[0]+lowerright[0])/2,upperleft[1]),((upperleft[0]+lowerright[0])/2,lowerright[1]))
         self.height = GCdist((upperleft[0],(upperleft[1]+lowerright[1])/2),(lowerright[0],(upperleft[1]+lowerright[1])/2))
 
         self.DemographicStats = GetDemosRegion(np.delete(np.unique(self.Countries),0),demographics)
 
-        self.CountryNames = {}
+        self.CountryNames = {"Total":"Total"}
+
+        self.LandMarks = pd.DataFrame(columns = ["Name","Location","Type"])
+
+
+        self.WRad = world.Radius
+
+        self.Roads = None
+
+        self.MakeRoads(world)
+
+        self.CountryPops = None
+
+    def MakeCStats(self):
+        CDF = self.DemographicStats.T
+        CDF["Total"] = CDF.sum(axis = 1)
+        for i in CDF.index:
+            if i in self.CountryNames.keys():
+                CDF.loc[i,"Name"] = self.CountryNames[i]
+        self.CountryPops = CDF
 
     def ListCities(self):
         citylocs =  (self.Phi[np.where(self.CityMasks)],self.Theta[np.where(self.CityMasks)])
         cityDF = pd.DataFrame(index = ['C'+str(i) for i in range(len(citylocs[0]))], columns = ["Location","Population","Name"])
         for i in range(len(citylocs[0])):
-            cityDF.loc['C' + str(i)] = [(citylocs[0][i],citylocs[1][i]),self.PopInterp(citylocs[0][i],citylocs[1][i])[0],'']
+            cityDF.loc['C' + str(i)] = [(citylocs[0][i],citylocs[1][i]),self.PopInterp(citylocs[0][i],citylocs[1][i])[0],'C' + str(i)]
         # citylist = [('C' + str(i),(citylocs[0][i],citylocs[1][i]),self.PopInterp(citylocs[0][i],citylocs[1][i])) for i in range(len(citylocs[0]))]
         return cityDF
 
-    def ShowMap(self,left = 0,right = 1,bottom = 0,top = 1,labelCities = False, cityLabel = "Name", LabelCountries = False, countryLabel = "Name"):
+    def ShowMap(self,left = 0,right = 1,bottom = 0,top = 1,labelCities = False, cityLabel = "Name", LabelCountries = False, countryLabel = "Name", showRoads = False, showLandmarks = False):
 
         leftside = (1-left)*self.Theta[0,0] + left*self.Theta[-1,0]
         rightside = (1-right)*self.Theta[0,0] + right*self.Theta[-1,0]
@@ -299,6 +331,25 @@ class Region:
                     else:
                         ax.text(*pt,ci,fontsize=25/fscl,color = 'navy')
 
+        ScaleStart = (topside + 0.05,leftside + 0.05)
+        ScaleStop = (topside + 0.05,leftside + 0.05 + 0.2*self.width)
+        kyloc = (topside + 0.07,leftside + 0.05 + 0.1*self.width)
+        ax.plot([ScaleStart[1],ScaleStop[1]],[ScaleStart[0],ScaleStop[0]], color = "k",linewidth=6)
+        dist = GCdist(ScaleStart,ScaleStop)
+        dstr = "{0:.3f} miles".format(dist*self.WRad)
+        ax.text(*kyloc[::-1], dstr, size = 20)
+
+        if showRoads:
+            for r in self.Roads.index:
+                ax.scatter(self.Roads.loc[r,"Points"][1],self.Roads.loc[r,"Points"][0],c = 'tab:brown')
+
+        if showLandmarks:
+            for lm in self.LandMarks.index:
+                loc = self.LandMarks.loc[lm,"Location"]
+                ax.scatter([loc[1]],[loc[0]],s = 200, color = "k")
+                ax.text(loc[1]+0.01,loc[0]+0.01,self.LandMarks.loc[lm,"Name"],fontsize = 18)
+#
+
         return fig,ax
 
 
@@ -346,3 +397,30 @@ class Region:
         randomNames = np.random.choice(statenames,size = len(countrs),replace = False)
         for i in range(len(countrs)):
             self.CountryNames[countrs[i]] = randomNames[i]
+
+
+    def MakeRoads(self,world):
+        landInd = interp2d(*world.GlobeGrid,world.LandIndicator.astype(int))
+        Roads = pd.DataFrame(columns = ["City1","City2","Points","Distance"])
+        ###Find pairs of cities that are within some range.
+        CityDists = pd.DataFrame(columns = self.Cities.index, index = self.Cities.index)
+        for c1 in self.Cities.index:
+            for c2 in self.Cities.index:
+                CityDists.loc[c1,c2] = self.WRad*GCdist(self.Cities.loc[c1,"Location"],self.Cities.loc[c2,"Location"])
+        cnt = 0
+        for i in range(len(self.Cities)):
+            for j in range(i + 1,len(self.Cities)):
+                if CityDists.iloc[i,j] < 500:
+                    c1 = self.Cities.loc[CityDists.index[i],"Name"]
+                    c2 = self.Cities.loc[CityDists.index[j],"Name"]
+                    pts=RoadPts(self.Cities.loc[CityDists.index[i],"Location"],self.Cities.loc[CityDists.index[j],"Location"],self,landInd)
+                    dist = sum([GCdist((pts[0][ii],pts[1][ii]),(pts[0][ii+1],pts[1][ii+1]))*self.WRad for ii in range(len(pts[0])-1)])
+                    Roads.loc[cnt] = [c1,c2,pts,dist]
+                    cnt += 1
+        self.Roads = Roads
+
+    def AddRoad(self,pt1,pt2,world,name1 = "PtA", name2 = "PtB"):
+        landInd = interp2d(*world.GlobeGrid,world.LandIndicator.astype(int))
+        pts = RoadPts(pt1,pt2,self,landInd)
+        dist = sum([GCdist((pts[0][ii],pts[1][ii]),(pts[0][ii+1],pts[1][ii+1]))*self.WRad for ii in range(len(pts[0])-1)])
+        self.Roads.loc[self.Roads.index[-1]+1] = [name1,name2,pts,dist]
